@@ -1,0 +1,183 @@
+package com.github.nezxenka.darkbot.core.entities;
+
+import com.github.nezxenka.darkbot.config.BoxInfo;
+import com.github.nezxenka.darkbot.config.ConfigEntity;
+import com.github.nezxenka.darkbot.core.api.Capability;
+import com.github.nezxenka.darkbot.core.entities.fake.FakeEntities;
+import com.github.nezxenka.darkbot.core.entities.fake.FakeExtension;
+import com.github.nezxenka.darkbot.utils.Offsets;
+import eu.darkbot.api.game.entities.FakeEntity;
+import eu.darkbot.util.Timer;
+import lombok.Getter;
+import org.jetbrains.annotations.Nullable;
+
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
+
+import static com.github.nezxenka.darkbot.Main.API;
+
+public class Box extends Entity implements eu.darkbot.api.game.entities.Box {
+    private static final Map<String, Long> PAST_BOXES = new HashMap<>();
+
+    private final Timer invalidTimer = Timer.get(1_500);
+
+    private long collectedUntil;
+    private int retries = 0;
+
+    public String type, hash;
+
+    public BoxInfo boxInfo;
+
+    private Box(int id) {
+        super(id);
+    }
+
+    public Box(int id, long address) {
+        super(id);
+        this.update(address);
+
+        // ignore box for 1.5sec if reappears with same hash in 1.5sec
+        PAST_BOXES.values().removeIf(v -> v <= System.currentTimeMillis());
+        if (PAST_BOXES.containsKey(hash))
+            invalidTimer.activate();
+    }
+
+    @Override
+    public void removed() {
+        super.removed();
+
+        // add only if is not a `fake` box
+        if (invalidTimer.isInactive())
+            PAST_BOXES.put(hash, System.currentTimeMillis() + 1_500);
+    }
+
+    @Override
+    public String getHash() {
+        return hash;
+    }
+
+    @Override
+    public String getTypeName() {
+        return type;
+    }
+
+    @Override
+    public eu.darkbot.api.config.types.BoxInfo getInfo() {
+        return boxInfo;
+    }
+
+    public boolean isCollected() {
+        return invalidTimer.isActive() || removed || System.currentTimeMillis() < collectedUntil;
+    }
+
+    @Override
+    public boolean tryCollect() {
+        if (API.hasCapability(Capability.DIRECT_COLLECT_BOX)) {
+            API.collectBox(this);
+            setCollected();
+            return true;
+        }
+
+        if (trySelect(false)) {
+            setCollected();
+            return true;
+        }
+
+        return false;
+    }
+
+    public void setCollected() {
+        collectedUntil = System.currentTimeMillis() + getNextWait();
+        retries++;
+    }
+
+    public int getRetries() {
+        return retries;
+    }
+
+    @Override
+    public @Nullable Instant isCollectedUntil() {
+        return Instant.ofEpochMilli(collectedUntil);
+    }
+
+    public int getNextWait() {
+        return retries % 3 == 0 ? 50 : // one every 3 is an "instant retry"
+                retries < 5 ? retries * 1_000 : retries * 60_000; // After 5 retries consider box bugged
+    }
+
+    @Override
+    public void update() {
+        super.update();
+        clickable.update();
+    }
+
+    @Override
+    public void update(long address) {
+        super.update(address);
+
+        if (traits.isEmpty()) {
+            boxInfo = new BoxInfo();
+            return;
+        }
+
+        type = Offsets.getTraitAssetId(traits.getOrDefault(0, 0));
+        hash = API.readString(address, 160);
+
+        if (type.length() > 5) type = type.split(",")[0].replace("box_", "").replace("_box", "");
+
+        boxInfo = ConfigEntity.INSTANCE.getOrCreateBoxInfo(type);
+    }
+
+    public static class Ore extends Box implements eu.darkbot.api.game.entities.Ore {
+
+        public Ore(int id, long address) {
+            super(id, address);
+        }
+    }
+
+    public static class Beacon extends Box implements eu.darkbot.api.game.entities.Box.BeaconBox {
+
+        public Beacon(int id, long address) {
+            super(id, address);
+        }
+    }
+
+    @Getter
+    public static class Fake extends Box implements FakeEntity.FakeBox, FakeExtension {
+        private final FakeExtension.Data fakeData = new FakeExtension.Data(this);
+
+        public Fake(BoxInfo box) {
+            super(FakeEntities.allocateFakeId());
+            super.type = box.name;
+            super.boxInfo = box;
+        }
+
+        @Override
+        public boolean isInvalid(long mapAddress) {
+            return fakeData.isInvalid();
+        }
+
+        @Override
+        public boolean tryCollect() {
+            return fakeData.trySelect(false);
+        }
+
+        @Override
+        public boolean trySelect(boolean tryAttack) {
+            return fakeData.trySelect(tryAttack);
+        }
+
+        public String getHash() {
+            return type + locationInfo.getCurrent();
+        }
+
+        @Override
+        public void update() {
+        }
+
+        @Override
+        public void update(long address) {
+        }
+    }
+}

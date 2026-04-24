@@ -1,0 +1,128 @@
+package com.github.nezxenka.darkbot.gui.players;
+
+import com.github.nezxenka.darkbot.config.PlayerInfo;
+import com.github.nezxenka.darkbot.gui.utils.ListCellTitledBorder;
+import com.github.nezxenka.darkbot.gui.utils.UIUtils;
+import com.github.nezxenka.darkbot.utils.I18n;
+import eu.darkbot.api.config.types.PlayerTag;
+import net.miginfocom.swing.MigLayout;
+
+import javax.swing.*;
+import javax.swing.border.Border;
+import javax.swing.border.CompoundBorder;
+import javax.swing.border.EmptyBorder;
+import java.awt.*;
+import java.util.HashMap;
+import java.util.Map;
+
+public class PlayerRenderer extends JPanel implements ListCellRenderer<PlayerInfo> {
+
+    private final JLabel playername = new JLabel();
+    private final JLabel id = new JLabel();
+
+    private final Border defaultBorder, titledBorder;
+    private final Map<PlayerTag, Tag> tagCache = new HashMap<>();
+
+    private int addedPlayerCount = -1;
+
+    public PlayerRenderer(JList<? extends PlayerInfo> list) {
+        super(new MigLayout("ins 4px 0px 4px 5px, fill, h 28px!", "[50px!]8px![120px!]8px:push[]8px!", "[]"));
+        id.setFont(id.getFont().deriveFont(9f));
+        id.setHorizontalAlignment(SwingConstants.RIGHT);
+        id.setVerticalAlignment(SwingConstants.BOTTOM);
+
+        this.defaultBorder = this.getBorder();
+        this.titledBorder = new ListCellTitledBorder(list, I18n.get("players.title_separator"));
+    }
+
+    public void setAddedPlayerCount(int addedPlayers) {
+        this.addedPlayerCount = addedPlayers;
+    }
+
+    @Override
+    public Component getListCellRendererComponent(JList<? extends PlayerInfo> list, PlayerInfo value,
+                                                  int index, boolean isSelected, boolean cellHasFocus) {
+        removeAll();
+
+        setBackground(isSelected ? list.getSelectionBackground() : list.getBackground());
+        setForeground(isSelected ? list.getSelectionForeground() : list.getForeground());
+
+        if (value.clanTag != null && !value.clanTag.isBlank()) {
+            this.playername.setText("[" + value.clanTag + "] " + value.username);
+        } else {
+            this.playername.setText(value.username);
+        }
+        this.id.setText(String.valueOf(value.userId));
+
+        add(id, "grow");
+        add(playername, "grow");
+        for (PlayerTag tag : value.getTags().get())
+            add(tagCache.computeIfAbsent(tag, Tag::new), "grow");
+
+        setBorder(index == addedPlayerCount ? titledBorder : defaultBorder);
+
+        return this;
+    }
+
+    private static class Tag extends JLabel {
+        private static final int ALPHA = 96;
+        private static final Border MARGIN = new EmptyBorder(1, 5, 1, 5);
+
+        public Tag(PlayerTag tag) {
+            super(tag.getName());
+            setOpaque(true);
+            setBorder(new CompoundBorder(BorderFactory.createLineBorder(tag.getColor()), MARGIN));
+            setBackground(UIUtils.blendColor(tag.getColor(), ALPHA));
+        }
+    }
+
+    /**
+     * Functions overridden for performance reasons:
+     */
+    @Override
+    public boolean isOpaque() {
+        return true;
+    }
+
+    /*
+    // We can't override these or the tags start bugging due to layout manager.
+    @Override
+    public void validate() {}
+    @Override
+    public void invalidate() {}*/
+    @Override
+    public void repaint() {}
+    @Override
+    public void revalidate() {}
+    @Override
+    public void repaint(long tm, int x, int y, int width, int height) {}
+    @Override
+    public void repaint(Rectangle r) {}
+    @Override
+    protected void firePropertyChange(String propertyName, Object oldValue, Object newValue) {
+        // Strings get interned...
+        if (propertyName == "text"
+                || ((propertyName == "font" || propertyName == "foreground")
+                && oldValue != newValue
+                && getClientProperty(javax.swing.plaf.basic.BasicHTML.propertyKey) != null)) {
+
+            super.firePropertyChange(propertyName, oldValue, newValue);
+        }
+    }
+    @Override
+    public void firePropertyChange(String propertyName, byte oldValue, byte newValue) {}
+    @Override
+    public void firePropertyChange(String propertyName, char oldValue, char newValue) {}
+    @Override
+    public void firePropertyChange(String propertyName, short oldValue, short newValue) {}
+    @Override
+    public void firePropertyChange(String propertyName, int oldValue, int newValue) {}
+    @Override
+    public void firePropertyChange(String propertyName, long oldValue, long newValue) {}
+    @Override
+    public void firePropertyChange(String propertyName, float oldValue, float newValue) {}
+    @Override
+    public void firePropertyChange(String propertyName, double oldValue, double newValue) {}
+    @Override
+    public void firePropertyChange(String propertyName, boolean oldValue, boolean newValue) {}
+}

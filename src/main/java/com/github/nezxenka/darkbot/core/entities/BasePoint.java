@@ -1,0 +1,10 @@
+package com.github.nezxenka.darkbot.core.entities;
+
+import eu.darkbot.api.game.entities.Station;
+
+public class BasePoint extends Entity implements Station {
+
+    public BasePoint(int id, long address) {
+        super(id, address);
+    }
+}

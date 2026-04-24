@@ -1,0 +1,35 @@
+package com.github.nezxenka.darkbot.config;
+
+import com.github.nezxenka.darkbot.core.itf.NpcExtraProvider;
+import com.github.nezxenka.darkbot.extensions.features.Feature;
+import com.github.nezxenka.darkbot.utils.I18n;
+
+import java.util.Locale;
+
+public enum NpcExtra implements NpcExtraFlag {
+    NO_CIRCLE, IGNORE_OWNERSHIP, IGNORE_ATTACKED, IGNORE_BOXES, AGGRESSIVE_FOLLOW, PASSIVE, ATTACK_SECOND, LEECH_ONLY, NO_SAB, USE_RSB, PET_LOCATOR, OPPOSITE_CONFIG;
+
+    @Override
+    public String getShortName() {
+        return I18n.getOrDefault("config.loot.npc_table.extra." + name().toLowerCase(Locale.ROOT) + ".short", name());
+    }
+
+    @Override
+    public String getName() {
+        return I18n.getOrDefault("config.loot.npc_table.extra." + name().toLowerCase(Locale.ROOT), name());
+    }
+
+    @Override
+    public String getDescription() {
+        return I18n.getOrDefault("config.loot.npc_table.extra." + name().toLowerCase(Locale.ROOT) + ".desc", name());
+    }
+
+    @Feature(name = "Legacy NpcExtra flag provider", description = "Provides default npc extra flags")
+    public static class DefaultNpcExtraProvider implements NpcExtraProvider {
+        @Override
+        public NpcExtraFlag[] values() {
+            return NpcExtra.values();
+        }
+    }
+
+}
